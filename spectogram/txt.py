@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from scipy import signal
 
 # Read the txt file into a DataFrame
-input_txt_file = './files/OpenBCI1.txt'
-output_csv_file = './files/output.csv'
+input_txt_file = './files/OpenBCI2.txt'
+output_csv_file = './files/output2.csv'
 
 with open(input_txt_file, 'r') as file:
     lines = [line.strip() for line in file.readlines() if not line.startswith('%')]
