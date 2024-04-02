@@ -35,7 +35,7 @@ def main():
     time_thres = 100
     max_val = -100000000000
     vals_mean = 0
-    num_samples = 5000
+    num_samples = 2000
     samples = 0
 
     if args.log:
@@ -66,7 +66,7 @@ def main():
             if np.amax(data[1]) > max_val:
                 max_val = np.amax(data[1])  # update max
 
-    flex_thres = 0.5 * ((max_val - vals_mean) ** 2)  # calculate flex threshold - percentage needs to be set per person
+    flex_thres = 0.4 * ((max_val - vals_mean) ** 2)  # calculate flex threshold - percentage needs to be set per person
 
     print("Mean Value")
     print(vals_mean)
@@ -98,6 +98,8 @@ def main():
 
     board.stop_stream()
     board.release_session()
+
+    DataFilter.write_file(data[1], chrome + '.csv', 'w')
 
 
 if __name__ == "__main__":
