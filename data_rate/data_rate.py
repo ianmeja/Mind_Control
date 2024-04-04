@@ -5,71 +5,55 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    input_txt_file = '../utils/testFeb.txt'
-    output_csv_file = '../utils/output.csv'
+    output_csv_file = '../utils/data_rate_2.csv'
 
-    process_file(input_txt_file, output_csv_file)
+    np.set_printoptions(suppress=True, precision=6)     # para que no aparezca el exponencial
 
-    channels = ['EXG Channel 0', 'EXG Channel 1', 'EXG Channel 2', 'EXG Channel 3']
-    signal = load_signal(output_csv_file, channels)
-    channel_0 = signal['EXG Channel 0']
-    channel_1 = signal['EXG Channel 1']
-    channel_2 = signal['EXG Channel 2']
-    channel_3 = signal['EXG Channel 3']
-    print("channel_1:", channel_1)
+    signal = load_signal(output_csv_file)
+    channel_0 = signal[:, 1]
+    # channel_1 = signal[:, 2]
+    # channel_2 = signal[:, 3]
+    # channel_3 = signal[:, 4]
+    # print("channel_0:", channel_0)
 
-    SNR = calculate_snr(output_csv_file)
-    b = calculate_bandwidth(channel_1)
-    print("Data Rate =", calculate_data_rate(b, SNR))
+    # Plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(channel_0)
+    plt.title('EMG Signal Over Time - Channel 0')
+    plt.show()
 
+    SNR = calculate_snr(channel_0)
+    b1 = calculate_bandwidth(channel_0)
+    b2 = calcular_ancho_banda(channel_0)
+    # TODO Hernan dijo de agarrarlo del UI
+    print("Bandwidth A = ", b1)
+    print("Bandwidth B = ", b2)
+    print("Data Rate = ", calculate_data_rate(b1, SNR))
 
-def process_file(input_file, output_file):
-    # Lectura del archivo TXT y escritura en CSV
-    with open(input_file, 'r') as file:
-        lines = [line.strip() for line in file.readlines() if not line.startswith('%')]
-
-    header = lines[0].split(', ')
-    data_lines = [line.split(', ') for line in lines[1:]]
-    df = pd.DataFrame(data_lines, columns=header)
-
-    df.to_csv(output_file, index=False)
-
-
-def load_signal(csv_file, channels):
-    data = pd.read_csv(csv_file)
-    signal = {}
-    for channel in channels:
-        signal[channel] = data[channel].values
-    return signal
+def load_signal(csv_file):
+    data = pd.read_csv(csv_file, delimiter='\t')
+    matrix = data.values
+    return matrix
 
 
-def calculate_snr(csv_file):
-    df = pd.read_csv(csv_file)
-    channels = ['EXG Channel 0', 'EXG Channel 1', 'EXG Channel 2', 'EXG Channel 3']
-    df = df[channels]
-    signal = df.to_numpy().flatten().astype(float)
+def calculate_snr(channel):
 
-    # señal
-   # plt.figure(figsize=(10, 6))
-   # plt.plot(signal)
-   # plt.show()
-
-    peaks, _ = find_peaks(signal)
-    print("Posición de los picos:", peaks)
+    peaks, _ = find_peaks(channel)
+    # print("Posición de los picos:", peaks)
 
     # Desvío estándar de los picos
-    peak_std = np.std(signal[peaks])
+    peak_std = np.std(channel[peaks])
 
     # Array booleano donde picos = False
-    mask = np.ones(len(signal), dtype=bool)
+    mask = np.ones(len(channel), dtype=bool)
     mask[peaks] = False
 
     # Desvío estándar de la señal excluyendo los picos (ruido)
-    noise_signal = signal[mask]
+    noise_signal = channel[mask]
     noise_signal_std = np.std(noise_signal)
 
     # Desvío estándar de la señal entera
-    signal_std = np.std(signal)
+    signal_std = np.std(channel)
 
     SNR = signal_std / noise_signal_std
 
@@ -80,13 +64,12 @@ def calculate_snr(csv_file):
     return SNR
 
 
-def calculate_bandwidth(signal):
-    # TODO hacer con un solo canal!
+def calculate_bandwidth(channel):
     # Aplicar la Transformada de Fourier (FFT) a la señal
-    fft_signal = np.fft.fft(signal)
-    freq = np.fft.fftfreq(len(signal), 1/200)
-    print("fft =", fft_signal)
-    print("freq =", freq)
+    fft_signal = np.fft.fft(channel)
+    freq = np.fft.fftfreq(len(channel), 1/200)
+    # print("fft =", fft_signal)
+    # print("freq =", freq)
 
     # potencia espectral
     spectral_power = np.abs(fft_signal) ** 2
@@ -108,8 +91,29 @@ def calculate_bandwidth(signal):
     frequencies_95_percent = freq[sorted_indices[:index_95_percent]]
 
     bandwidth = frequencies_95_percent[-1] - frequencies_95_percent[0]
-    print("B =", bandwidth)
     return bandwidth
+
+
+def calcular_ancho_banda(frecuencias):
+    # FFT
+    fft_resultado = np.fft.fft(frecuencias)
+
+    # Amplitudes de las frecuencias
+    amplitudes = np.abs(fft_resultado)
+    amplitudes_ordenadas = np.sort(amplitudes)[::-1]
+
+    # Calculamos el porcentaje acumulado de las amplitudes
+    porcentaje_acumulado = np.cumsum(amplitudes_ordenadas) / np.sum(amplitudes_ordenadas)
+
+    # Frecuencias que representan el 95% de la señal
+    frecuencias_seleccionadas = np.where(porcentaje_acumulado >= 0.95)[0]
+
+    # Obtenemos la frecuencia mínima y máxima que explican el 95%
+    frecuencia_minima = frecuencias_seleccionadas.min()
+    frecuencia_maxima = frecuencias_seleccionadas.max()
+
+    ancho_banda = frecuencias[frecuencia_maxima] - frecuencias[frecuencia_minima]
+    return ancho_banda
 
 
 def calculate_data_rate(bandwidth, snr):
