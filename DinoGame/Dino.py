@@ -1,6 +1,12 @@
 import pygame
 import sys
 import random
+import argparse
+from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels
+from brainflow.data_filter import DataFilter, AggOperations
+import time
+import numpy as np
+import pyautogui
 
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
@@ -53,6 +59,12 @@ class Dino(pygame.sprite.Sprite):
             while self.rect.centery - self.velocity > 40:
                 self.rect.centery -= 1
 
+    def duck(self):
+        self.ducking = True
+
+    def unduck(self):
+        self.ducking = False
+
     def apply_gravity(self):
         if self.rect.centery <= 360:
             self.rect.centery += self.gravity
@@ -90,55 +102,37 @@ class Cactus(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
 
 
-# Variables
-
-
 game_speed = 5
-jump_count = 10
 player_score = 0
 game_over = False
 obstacle_timer = 0
 obstacle_spawn = False
 obstacle_cooldown = 1000
 
-# Surfaces
-
 ground = pygame.image.load("assets/ground.png")
 ground = pygame.transform.scale(ground, (1280, 20))
 ground_x = 0
-ground_rect = ground.get_rect(center=(640, 400))
 cloud = pygame.image.load("assets/cloud.png")
 cloud = pygame.transform.scale(cloud, (200, 80))
-
-# Groups
 
 cloud_group = pygame.sprite.Group()
 obstacle_group = pygame.sprite.Group()
 dino_group = pygame.sprite.GroupSingle()
 
-# Objects
-dinosaur = Dino(50, 360)
-dino_group.add(dinosaur)
-
-# Sounds
 death_sfx = pygame.mixer.Sound("assets/sfx/lose.mp3")
 points_sfx = pygame.mixer.Sound("assets/sfx/100points.mp3")
 jump_sfx = pygame.mixer.Sound("assets/sfx/jump.mp3")
 
-# Events
 CLOUD_EVENT = pygame.USEREVENT
 pygame.time.set_timer(CLOUD_EVENT, 3000)
-
-# Functions
 
 
 def end_game():
     global player_score, game_speed
     game_over_text = game_font.render("Game Over!", True, "black")
-    game_over_rect = game_over_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 - 30))  # Centro vertical, 30 píxeles arriba del centro horizontal
+    game_over_rect = game_over_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 - 30))
     score_text = game_font.render(f"Score: {int(player_score)}", True, "black")
     score_rect = score_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 + 10))
-    score_rect = score_text.get_rect(center=(640, 340))
     screen.blit(game_over_text, game_over_rect)
     screen.blit(score_text, score_rect)
     game_speed = 5
@@ -146,79 +140,92 @@ def end_game():
     obstacle_group.empty()
 
 
-while True:
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_DOWN]:
-        dinosaur.duck()
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--timeout', type=int, help='timeout for device discovery or connection', required=False, default=0)
+    parser.add_argument('--serial-port', type=str, help='serial port', required=True)
+    parser.add_argument('--mac-address', type=str, help='mac address', required=False, default='')
+    parser.add_argument('--file', type=str, help='file', required=False, default='')
+    parser.add_argument('--log', action='store_true')
+    parser.add_argument('--board-id', type=int, help='board id, check docs to get a list of supported boards', required=True)
+    parser.add_argument('--streamer-params', type=str, help='streamer params', required=False, default='')
+    args = parser.parse_args()
+
+    params = BrainFlowInputParams()
+    params.serial_port = args.serial_port
+    params.mac_address = args.mac_address
+    params.timeout = args.timeout
+
+    if args.log:
+        BoardShim.enable_dev_board_logger()
     else:
-        if dinosaur.ducking:
-            dinosaur.unduck()
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        if event.type == CLOUD_EVENT:
-            current_cloud_y = random.randint(50, 300)
-            current_cloud = Cloud(cloud, 1380, current_cloud_y)
-            cloud_group.add(current_cloud)
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE or event.key == pygame.K_UP:
-                dinosaur.jump()
-                if game_over:
-                    game_over = False
-                    game_speed = 5
-                    player_score = 0
+        BoardShim.disable_board_logger()
 
-    screen.fill("white")
+    board = BoardShim(args.board_id, params)
+    board.prepare_session()
 
-    # Collisions
-    if pygame.sprite.spritecollide(dino_group.sprite, obstacle_group, False):
-        game_over = True
-        death_sfx.play()
-    if game_over:
-        end_game()
+    board.start_stream(45000, args.streamer_params)
 
-    if not game_over:
-        game_speed += 0.0025
-        if round(player_score, 1) % 100 == 0 and int(player_score) > 0:
-            points_sfx.play()
+    # initialize calibration and time variables
+    time_thres = 100
+    max_val = -100000000000
+    vals_mean = 0
+    num_samples = 2000
+    samples = 0
 
-        if pygame.time.get_ticks() - obstacle_timer >= obstacle_cooldown:
-            obstacle_spawn = True
+    print("Starting calibration")
+    time.sleep(5)  # wait for data to stabilize
+    data = board.get_board_data()  # clear buffer
 
-        if obstacle_spawn:
-            obstacle_random = random.randint(1, 50)
-            if obstacle_random in range(1, 7):
-                new_obstacle = Cactus(1280, 340)
-                obstacle_group.add(new_obstacle)
-                obstacle_timer = pygame.time.get_ticks()
-                obstacle_spawn = False
-            elif obstacle_random in range(7, 10):
-                obstacle_group.add(new_obstacle)
-                obstacle_timer = pygame.time.get_ticks()
-                obstacle_spawn = False
+    print("Relax and flex your arm a few times")
 
-        player_score += 0.1
-        player_score_surface = game_font.render(
-            str(int(player_score)), True, ("black"))
-        screen.blit(player_score_surface, (1150, 10))
+    while samples < num_samples:
 
-        cloud_group.update()
-        cloud_group.draw(screen)
+        data = board.get_board_data()  # get data
+        if len(data[1]) > 0:
+            DataFilter.perform_rolling_filter(data[1], 2, AggOperations.MEAN.value)  # denoise data
+            vals_mean += sum([data[1, i] / num_samples for i in range(len(data[1]))])  # update mean
+            samples += len(data[1])
+            if np.amax(data[1]) > max_val:
+                max_val = np.amax(data[1])  # update max
 
-        dino_group.update()
-        dino_group.draw(screen)
+    flex_thres = 0.4 * ((max_val - vals_mean) ** 2)  # calculate flex threshold - percentage needs to be set per person
 
-        obstacle_group.update()
-        obstacle_group.draw(screen)
+    print("Mean Value")
+    print(vals_mean)
+    print("Max Value")
+    print(max_val)
+    print("Threshold")
+    print(flex_thres)
 
-        ground_x -= game_speed
+    print("Calibration complete. Start!")
+    prev_time = int(round(time.time() * 1000))
 
-        screen.blit(ground, (ground_x, 360))
-        screen.blit(ground, (ground_x + 1280, 360))
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-        if ground_x <= -1280:
-            ground_x = 0
+        data = board.get_board_data()  # get data
+        if len(data[1]) > 0:
+            DataFilter.perform_rolling_filter(data[1], 2, AggOperations.MEAN.value)  # denoise data
+            if (int(round(time.time() * 1000)) - time_thres) > prev_time:  # if enough time has gone by since the last flex
+                prev_time = int(round(time.time() * 1000))  # update time
+                for element in data[1]:
+                    if ((element - vals_mean) ** 2) >= flex_thres:  # if above threshold
+                        pyautogui.press('space')  # jump
+                        break
 
-    clock.tick(120)
-    pygame.display.update()
+    board.stop_stream()
+    board.release_session()
+
+    DataFilter.write_file(data[1], 'chrome.csv', 'w')
+
+    pygame.quit()
+    sys.exit()
+
+
+if __name__ == "__main__":
+    main()
+
