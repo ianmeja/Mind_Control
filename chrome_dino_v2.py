@@ -5,6 +5,7 @@ import collections
 import pyautogui
 import pandas as pd
 import matplotlib.pyplot as plt
+import keyboard
 
 import brainflow
 from brainflow.board_shim import BoardShim, BoardIds, BrainFlowInputParams
@@ -19,12 +20,12 @@ def main ():
     parser.add_argument ('--ip-port', type = int, help  = 'ip port', required = False, default = 0)
     parser.add_argument ('--ip-protocol', type = int, help  = 'ip protocol, check IpProtocolType enum', required = False, default = 0)
     parser.add_argument ('--ip-address', type = str, help  = 'ip address', required = False, default = '')
-    parser.add_argument ('--serial-port', type = str, help  = 'serial port', required = False, default = '')
+    parser.add_argument ('--serial-port', type = str, help  = 'serial port', required = False, default = '/dev/cu.usbmodem11')
     parser.add_argument ('--mac-address', type = str, help  = 'mac address', required = False, default = '')
     parser.add_argument ('--other-info', type = str, help  = 'other info', required = False, default = '')
     parser.add_argument ('--streamer-params', type = str, help  = 'streamer params', required = False, default = '')
     parser.add_argument ('--serial-number', type = str, help  = 'serial number', required = False, default = '')
-    parser.add_argument ('--board-id', type = int, help  = 'board id, check docs to get a list of supported boards', required = True)
+    parser.add_argument ('--board-id', type = int, help  = 'board id, check docs to get a list of supported boards', default=BoardIds.GANGLION_BOARD)
     parser.add_argument('--file', type=str, help='file', required=False, default='')
     parser.add_argument('--master-board', type=int, help='master board id for streaming and playback boards', required=False, default=BoardIds.NO_BOARD)
     parser.add_argument ('--log', action = 'store_true')
@@ -43,11 +44,12 @@ def main ():
     params.master_board = args.master_board
 
     # initialize calibration and time variables
-    time_thres =  100
+    time_thres = 50
     sampling_rate = BoardShim.get_sampling_rate (args.board_id)
     window = sampling_rate*5 # 5 second window   
-    flex_thres = 0.8
+    flex_thres = 0.92  
 
+    args.log = True
     if (args.log):
         BoardShim.enable_dev_board_logger ()
     else:
@@ -63,8 +65,13 @@ def main ():
     print("Start!")
     prev_time = int(round(time.time() * 1000))
 
+    count = 0
     while True:
 
+        if keyboard.is_pressed('x'):
+            print("Exiting the loop.")
+            break
+        
         data = board.get_current_board_data(window) # get data 
         DataFilter.perform_rolling_filter (data[1], 2, AggOperations.MEAN.value) # denoise data
         maximum = max(data[1])
@@ -75,6 +82,7 @@ def main ():
             prev_time = int(round(time.time() * 1000)) # update time
             for element in norm_data:
                 if(element >= flex_thres):
+                    count+=1
                     pyautogui.press('space') # jump
                     break
 
