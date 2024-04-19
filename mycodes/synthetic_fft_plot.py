@@ -28,6 +28,51 @@ def plot_timeseries(data, emg_channels, sampling_rate, file_name):
     plt.grid(True)
     plt.savefig(file_name)
     
+def plot_fft(data, channel, sampling_rate):
+    fft_data = np.fft.fft(data)
+    
+    # Compute the magnitudes of the FFT result
+    magnitude = np.abs(fft_data)
+    
+    # Generate the frequency axis
+    N = len(fft_data)
+    T = 1/sampling_rate
+    freq = np.fft.fftfreq(N, T)
+    
+    # Filter frequencies and amplitudes above 0
+    positive_freq = freq[(freq > 0) & (magnitude > 0)]
+    positive_mag = magnitude[(freq > 0) & (magnitude > 0)]
+    
+    # Filter frequencies and amplitudes above M uV
+    M = 10000
+    marked_freq = freq[magnitude > M]
+    marked_mag = magnitude[magnitude > M]
+
+    # Plot the FFT result
+    plt.figure(figsize=(10, 5))
+    plt.plot(positive_freq, positive_mag, linestyle='-', linewidth=1)
+    plt.scatter(marked_freq, marked_mag, marker='o')  # Plot markers for positive amplitudes
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Amplitude (μV)')
+    
+    # This is to enable logaritmic scale
+    #plt.yscale('log')
+    #plt.yticks([0.1, 1, 10, 100, 1000], ['0.1', '1', '10', '100', '1000'])
+    
+    # Set the x-axis limit to 0-100 Hz and the y-axis limit to auto
+    plt.xlim(0, 100)
+    plt.ylim(0, auto=True)
+    plt.title('FFT Channel %d Plot' % channel)
+    plt.grid(True)
+
+    # Annotate the most powerful frequencies with their amplitudes
+    for f, mag in zip(marked_freq, marked_mag):
+        plt.annotate(f'{f:.2f} Hz\n{mag:.2f} μV', xy=(f, mag), xytext=(f + 5, mag),
+                    arrowprops=dict(facecolor='black', arrowstyle='->'), bbox=dict(facecolor='white', alpha=0.5))
+    
+    # Save the plot
+    #plt.savefig('fft_channel_%d.png' % channel) 
+    
 
 def main():
     BoardShim.enable_dev_board_logger()
@@ -48,7 +93,7 @@ def main():
     board.stop_stream()
     board.release_session()
 
-    emg_channels = [1,2]
+    emg_channels = [1,2,3,4]
     print('Sampling Rate: %d' % sampling_rate)
     print('Num of Samples: %d' % num_points)
     print('Len of Data: %d' % len(data[1]))
@@ -62,46 +107,8 @@ def main():
 
         # Denoise data
         DataFilter.remove_environmental_noise(data[channel], sampling_rate, NoiseTypes.FIFTY_AND_SIXTY)
-
-        # Calculate FFT on the detrended signal, len of data must be a power of 2 (256 in this case)
-        fft_data = DataFilter.perform_fft(data[channel], WindowOperations.BLACKMAN_HARRIS.value)
-
-        # Compute the magnitudes of the FFT result
-        magnitude = np.abs(fft_data)
         
-        # Generate the frequency axis
-        N = len(fft_data)
-        T = 1/sampling_rate
-        freq = np.fft.fftfreq(N, T)
-        
-        # Filter frequencies and amplitudes above 0.5
-        positive_freq = freq[(freq > 0) & (magnitude > 0)]
-        positive_mag = magnitude[(freq > 0) & (magnitude > 0)]
-        
-        # Filter frequencies and amplitudes above 10000uV
-        marked_freq = freq[magnitude > 10000]
-        marked_mag = magnitude[magnitude > 10000]
-
-        # Plot the FFT result
-        plt.figure(figsize=(10, 5))
-        plt.plot(positive_freq, positive_mag, linestyle='-', linewidth=1)
-        plt.scatter(marked_freq, marked_mag, marker='o')  # Plot markers for positive amplitudes
-        plt.xlabel('Frequency (Hz)')
-        plt.ylabel('Amplitude (μV)')
-        #plt.yscale('log')
-        #plt.yticks([0.1, 1, 10, 100, 1000], ['0.1', '1', '10', '100', '1000'])
-        # Set the x-axis limit to 0-100 Hz and the y-axis limit to auto
-        plt.xlim(0, 100)
-        plt.ylim(0, auto=True)
-        plt.title('FFT Channel %d Plot' % channel)
-        plt.grid(True)
-
-        # Annotate the most powerful frequencies with their amplitudes
-        for f, mag in zip(marked_freq, marked_mag):
-            plt.annotate(f'{f:.2f} Hz\n{mag:.2f} μV', xy=(f, mag), xytext=(f + 5, mag),
-                        arrowprops=dict(facecolor='black', arrowstyle='->'), bbox=dict(facecolor='white', alpha=0.5))
-        
-        #plt.savefig('fft_channel_%d.png' % channel)
+        plot_fft(data[channel], channel, sampling_rate)
         
         #psd = DataFilter.get_psd_welch(data[channel], num_points, num_points // 2, sampling_rate,
         #                           WindowOperations.BLACKMAN_HARRIS.value)
