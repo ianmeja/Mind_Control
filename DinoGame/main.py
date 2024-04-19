@@ -24,33 +24,28 @@ class Cloud(pygame.sprite.Sprite):
 
 class Dino(pygame.sprite.Sprite):
     def __init__(self, x_pos, y_pos):
+        # sourcery skip: merge-list-append, move-assign-in-block
         super().__init__()
         self.running_sprites = []
-        self.ducking_sprites = []
 
         self.running_sprites.append(pygame.transform.scale(
             pygame.image.load("assets/Dino1.png"), (80, 100)))
         self.running_sprites.append(pygame.transform.scale(
             pygame.image.load("assets/Dino2.png"), (80, 100)))
 
-        self.ducking_sprites.append(pygame.transform.scale(
-            pygame.image.load(f"assets/DinoDucking1.png"), (110, 60)))
-        self.ducking_sprites.append(pygame.transform.scale(
-            pygame.image.load(f"assets/DinoDucking2.png"), (110, 60)))
-
         self.x_pos = x_pos
         self.y_pos = y_pos
         self.current_image = 0
         self.image = self.running_sprites[self.current_image]
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
-        self.velocity = 20
-        self.gravity = 3.9
+        self.velocity = 25
+        self.gravity = 3.3
         self.ducking = False
-
+        
     def jump(self):
         jump_sfx.play()
         if self.rect.centery >= 360:
-            while self.rect.centery - self.velocity > 40:
+            while self.rect.centery - self.velocity > 50:
                 self.rect.centery -= 1
 
     def apply_gravity(self):
@@ -65,11 +60,7 @@ class Dino(pygame.sprite.Sprite):
         self.current_image += 0.05
         if self.current_image >= 2:
             self.current_image = 0
-
-        if self.ducking:
-            self.image = self.ducking_sprites[int(self.current_image)]
-        else:
-            self.image = self.running_sprites[int(self.current_image)]
+        self.image = self.running_sprites[int(self.current_image)]
 
 
 class Cactus(pygame.sprite.Sprite):
@@ -79,7 +70,8 @@ class Cactus(pygame.sprite.Sprite):
         self.y_pos = y_pos
         self.sprites = []
         current_sprite = pygame.transform.scale(
-            pygame.image.load(f"assets/cacti/cactus2.png"), (100, 100))
+            pygame.image.load("assets/cacti/cactus6.png"), (100, 100)
+        )
         self.sprites.append(current_sprite)
         self.image = random.choice(self.sprites)
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
@@ -93,15 +85,15 @@ class Cactus(pygame.sprite.Sprite):
 
 
 game_speed = 5
-jump_count = 10
 player_score = 0
+jump_counter = 0
 game_over = False
 times_up = False
 obstacle_timer = 0
 obstacle_spawn = False
 obstacle_cooldown = 1000 #TODO ir bajando el valor para que aparezcan
 
-game_duration = 10  #TODO setear el valor de duracion del juego
+game_duration = 20  #TODO setear el valor de duracion del juego
 current_time = 0
 
 # Surfaces
@@ -131,23 +123,24 @@ jump_sfx = pygame.mixer.Sound("assets/sfx/jump.mp3")
 # Events
 CLOUD_EVENT = pygame.USEREVENT
 pygame.time.set_timer(CLOUD_EVENT, 3000)
+OBSTACLE_EVENT = pygame.USEREVENT
+pygame.time.set_timer(OBSTACLE_EVENT, 2000)
 
 # Functions
 
 
 def end_game():
-    global player_score, game_speed, current_time
+    global player_score, current_time
     if times_up:
         game_over_text = game_font.render("Time is up!", True, "black")
     else:
         game_over_text = game_font.render("Game Over!", True, "black")
     game_over_rect = game_over_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 - 30))  # Centro vertical, 30 píxeles arriba del centro horizontal
-    score_text = game_font.render(f"Score: {int(player_score)}", True, "black")
+    score_text = game_font.render(f"Jumps: {int(jump_counter-1)}", True, "black")
     score_rect = score_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 + 10))
     score_rect = score_text.get_rect(center=(640, 340))
     screen.blit(game_over_text, game_over_rect)
     screen.blit(score_text, score_rect)
-    game_speed = 5
     cloud_group.empty()
     obstacle_group.empty()
     current_time = 0
@@ -155,11 +148,6 @@ def end_game():
 while True:
 
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_DOWN]:
-        dinosaur.duck()
-    else:
-        if dinosaur.ducking:
-            dinosaur.unduck()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -168,19 +156,26 @@ while True:
             current_cloud_y = random.randint(50, 300)
             current_cloud = Cloud(cloud, 1380, current_cloud_y)
             cloud_group.add(current_cloud)
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE or event.key == pygame.K_UP:
-                dinosaur.jump()
-                if game_over:
-                    game_over = False
-                    times_up = False
-                    game_speed = 5
-                    player_score = 0
+        if event.type == OBSTACLE_EVENT:
+            new_obstacle = Cactus(1280, 340)
+            obstacle_group.add(new_obstacle)
+            if not game_over:
+                jump_counter += 1
+        if event.type == pygame.KEYDOWN and event.key in [
+            pygame.K_SPACE,
+            pygame.K_UP,
+        ]:
+            dinosaur.jump()
+            if game_over:
+                game_over = False
+                times_up = False
+                player_score = 0
+                jump_counter = 0
 
     screen.fill("white")
 
     # Update timer
-    current_time += 1 / 60  # Assuming 60 FPS
+    current_time += 1 / 120  # 120 FPS
     if current_time >= game_duration:
         game_over = True
         times_up = True
@@ -194,25 +189,6 @@ while True:
         end_game()
 
     if not game_over:
-        # game_speed += 0.0025
-        if round(player_score, 1) % 100 == 0 and int(player_score) > 0:
-            points_sfx.play()
-
-        if pygame.time.get_ticks() - obstacle_timer >= obstacle_cooldown:
-            print("spawn ", pygame.time.get_ticks() , " y ", obstacle_timer, "y", obstacle_cooldown )
-            obstacle_spawn = True
-
-        if obstacle_spawn:
-            new_obstacle = Cactus(1280, 340)
-            obstacle_group.add(new_obstacle)
-            obstacle_timer = pygame.time.get_ticks()
-            obstacle_spawn = False
-
-        player_score += 0.1
-        player_score_surface = game_font.render(
-            str(int(player_score)), True, ("black"))
-        screen.blit(player_score_surface, (1150, 10))
-
         cloud_group.update()
         cloud_group.draw(screen)
 
