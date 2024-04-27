@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    output_csv_file = '../utils/data_rate_2.csv'
+    output_csv_file = '../utils/data_rate_1.csv'
 
     np.set_printoptions(suppress=True, precision=6)     # para que no aparezca el exponencial
 
@@ -23,12 +23,14 @@ def main():
     plt.show()
 
     SNR = calculate_snr(channel_0)
-    b1 = calculate_bandwidth(channel_0)
-    b2 = calcular_ancho_banda(channel_0)
+    #b1 = calculate_bandwidth(channel_0)
+    #b2 = calcular_ancho_banda(channel_0)
+    #plot_fft(channel_0, 1, 200)
     # TODO Hernan dijo de agarrarlo del UI
-    print("Bandwidth A = ", b1)
-    print("Bandwidth B = ", b2)
-    print("Data Rate = ", calculate_data_rate(b1, SNR))
+#    print("Bandwidth A = ", b1)
+#    print("Bandwidth B = ", b2)
+    print("Data Rate = ", calculate_data_rate(6, SNR))
+
 
 def load_signal(csv_file):
     data = pd.read_csv(csv_file, delimiter='\t')
@@ -119,6 +121,65 @@ def calcular_ancho_banda(frecuencias):
 def calculate_data_rate(bandwidth, snr):
     data_rate = bandwidth * np.log2(1 + snr)
     return data_rate
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def plot_fft(data, channel, sampling_rate):
+    fft_data = np.fft.fft(data)
+
+    # Compute the magnitudes of the FFT result
+    magnitude = np.abs(fft_data)
+
+    # Generate the frequency axis
+    N = len(fft_data)
+    T = 1 / sampling_rate
+    freq = np.fft.fftfreq(N, T)
+
+    # Filter frequencies and amplitudes above 0
+    positive_freq = freq[(freq > 0) & (magnitude > 0)]
+    positive_mag = magnitude[(freq > 0) & (magnitude > 0)]
+
+    # Find the index where 95% of the signal is accumulated
+    sorted_mag = np.sort(positive_mag)[::-1]  # Sort magnitudes in descending order
+    cum_sum = np.cumsum(sorted_mag)  # Compute cumulative sum
+    threshold = 0.3 * cum_sum[-1]  # 95% of the total sum
+    index_95 = np.searchsorted(cum_sum, threshold)  # Find the index where cumulative sum exceeds the threshold
+
+    # Filter frequencies and amplitudes above M uV
+    M = 100000
+    marked_freq = freq[magnitude > M]
+    marked_mag = magnitude[magnitude > M]
+
+    # Plot the FFT result
+    plt.figure(figsize=(10, 5))
+    plt.plot(positive_freq, positive_mag, linestyle='-', linewidth=1)
+    plt.scatter(marked_freq, marked_mag, marker='o')  # Plot markers for positive amplitudes
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Amplitude (μV)')
+
+    # Set the x-axis limit to 0-100 Hz and the y-axis limit to auto
+    plt.xlim(0, 100)
+    plt.ylim(0, auto=True)
+    plt.title('FFT Channel %d Plot' % channel)
+    plt.grid(True)
+
+    # Annotate the most powerful frequencies with their amplitudes
+    for f, mag in zip(marked_freq, marked_mag):
+        plt.annotate(f'{f:.2f} Hz\n{mag:.2f} μV', xy=(f, mag), xytext=(f + 5, mag),
+                     arrowprops=dict(facecolor='black', arrowstyle='->'), bbox=dict(facecolor='white', alpha=0.5))
+
+    freq_95 = positive_freq[index_95]
+
+    # Annotate the 95% accumulation point with its frequency
+    plt.annotate(f'95% Accumulation\n{sorted_mag[index_95]:.2f} μV\n{freq_95:.2f} Hz',
+                 xy=(freq_95, sorted_mag[index_95]),
+                 xytext=(freq_95 + 5, sorted_mag[index_95]),
+                 arrowprops=dict(facecolor='red', arrowstyle='->'),
+                 bbox=dict(facecolor='white', alpha=0.5))
+    # Save the plot
+    plt.savefig('fft_channel_%d_2_2.png' % channel)
 
 
 if __name__ == "__main__":
