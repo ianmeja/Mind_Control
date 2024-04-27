@@ -84,7 +84,7 @@ class Cactus(pygame.sprite.Sprite):
 # Variables
 
 
-game_speed = 5
+game_speed = 6
 player_score = 0
 jump_counter = 0
 game_over = False

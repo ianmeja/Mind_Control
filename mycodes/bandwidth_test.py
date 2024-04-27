@@ -56,6 +56,7 @@ def main():
     board.start_stream(45000, args.streamer_params)
 
     print("Prepare for test...")
+    duration = 20
     # wait for data to stabilize
     for i in range(5):
         print(5-i)
@@ -63,8 +64,8 @@ def main():
     clear = board.get_board_data() # clear buffer
     
     print("Start")
-    for j in range(5):
-        print(5-j)
+    for j in range(duration):
+        print(duration-j)
         time.sleep(1)
     print("Stop")
     
@@ -80,7 +81,7 @@ def main():
     df = pd.DataFrame(np.transpose(data))
     plt.figure()
     df[1].plot(subplots=True)
-    plt.savefig(args.file_name + 'before.png')
+    plt.savefig(args.file_name + '-before.png')
 
     DataFilter.perform_rolling_filter (data[1], 2, AggOperations.MEAN.value)
     DataFilter.perform_bandpass(data[1], sampling_rate, 0.5, 10.0, 4, FilterTypes.BUTTERWORTH, 0)
@@ -92,7 +93,7 @@ def main():
     df2 = pd.DataFrame(np.transpose(data))
     plt.figure()
     df2[1].plot(subplots=True)
-    plt.savefig(args.file_name + 'after.png')
+    plt.savefig(args.file_name + '-after.png')
     
 
 if __name__ == "__main__":
