@@ -123,9 +123,6 @@ def calculate_data_rate(bandwidth, snr):
     return data_rate
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-
 def plot_fft(data, channel, sampling_rate):
     fft_data = np.fft.fft(data)
 
