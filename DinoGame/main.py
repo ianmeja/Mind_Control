@@ -2,14 +2,6 @@ import pygame
 import sys
 import random
 
-pygame.init()
-screen = pygame.display.set_mode((800, 600))
-clock = pygame.time.Clock()
-pygame.display.set_caption("Dino Game")
-
-game_font = pygame.font.Font("assets/PressStart2P-Regular.ttf", 24)
-
-
 class Cloud(pygame.sprite.Sprite):
     def __init__(self, image, x_pos, y_pos):
         super().__init__()
@@ -79,26 +71,51 @@ class Cactus(pygame.sprite.Sprite):
     def update(self):
         self.x_pos -= game_speed
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
+        
+def display_time_remaining():
+    elapsed_seconds = timer // 1000
+    timer_text = game_font.render(f"Time: {elapsed_seconds}s", True, (0, 0, 0))
+    timer_rect = timer_text.get_rect(topright=(780, 10))
+    screen.blit(timer_text, timer_rect)
 
+def end_game():
+    if times_up:
+        game_over_text = game_font.render("Time is up!", True, "black")
+    else:
+        game_over_text = game_font.render("Game Over!", True, "black")
+    game_over_rect = game_over_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 - 30))  # Centro vertical, 30 píxeles arriba del centro horizontal
+    screen.blit(game_over_text, game_over_rect)
+    
+    jump_text = game_font.render(f"Jumps: {int(jump_counter)}", True, "black")
+    jump_rect = jump_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 + 10))
+    jump_rect = jump_text.get_rect(center=(640, 340))
+    screen.blit(jump_text, jump_rect)
+    
+    elapsed_seconds = final_time / 1000
+    timer_text = game_font.render(f"Final Time: {elapsed_seconds}s", True, (0, 0, 0))
+    timer_rect = timer_text.get_rect(topright=(780, 10))
+    screen.blit(timer_text, timer_rect)
+    
+    cloud_group.empty()
+    obstacle_group.empty()
+    
+def init_screen():
+    init_text = game_font.render("Press 'space' to start", True, "black")
+    init_rect = init_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 - 30))  # Centro vertical, 30 píxeles arriba del centro horizontal
+    screen.blit(init_text, init_rect)
 
-# Variables
+################
+###  PYGAME  ###
+################
 
+pygame.init()
 
-game_speed = 6
-player_score = 0
-jump_counter = 0
-game_over = False
-times_up = False
-obstacle_timer = 0
-obstacle_spawn = False
-obstacle_cooldown = 1000  # TODO ir bajando el valor para que aparezcan
-
-game_duration = 20  # TODO setear el valor de duracion del juego
-current_time = 0
-timer = game_duration
+# Display
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("Dino Game")
+game_font = pygame.font.Font("assets/PressStart2P-Regular.ttf", 24)
 
 # Surfaces
-
 ground = pygame.image.load("assets/ground.png")
 ground = pygame.transform.scale(ground, (1280, 20))
 ground_x = 0
@@ -107,7 +124,6 @@ cloud = pygame.image.load("assets/cloud.png")
 cloud = pygame.transform.scale(cloud, (200, 80))
 
 # Groups
-
 cloud_group = pygame.sprite.Group()
 obstacle_group = pygame.sprite.Group()
 dino_group = pygame.sprite.GroupSingle()
@@ -121,46 +137,37 @@ death_sfx = pygame.mixer.Sound("assets/sfx/lose.mp3")
 points_sfx = pygame.mixer.Sound("assets/sfx/100points.mp3")
 jump_sfx = pygame.mixer.Sound("assets/sfx/jump.mp3")
 
+# Timer & FPS
+fps = 120
+clock = pygame.time.Clock()
+
 # Events
 CLOUD_EVENT = pygame.USEREVENT
 pygame.time.set_timer(CLOUD_EVENT, 3000)
 OBSTACLE_EVENT = pygame.USEREVENT
-pygame.time.set_timer(OBSTACLE_EVENT, 2000)
+pygame.time.set_timer(OBSTACLE_EVENT, 100)
 
+# Variables
+game_speed = 6
+game_duration = 10000  # in miliseconds
+start_time = 0
+timer = 0
+jump_counter = 0
+game_over = True
+times_up = False
+final_time = 0
+first_screen = True
 
-# Functions
-
-def display_time_remaining(time_left):
-    timer_text = game_font.render(f"Time: {int(time_left)}s", True, (0, 0, 0))
-    timer_rect = timer_text.get_rect(topright=(780, 10))
-    screen.blit(timer_text, timer_rect)
-
-
-def end_game():
-    global player_score, current_time, timer
-    if times_up:
-        game_over_text = game_font.render("Time is up!", True, "black")
-    else:
-        game_over_text = game_font.render("Game Over!", True, "black")
-    game_over_rect = game_over_text.get_rect(center=(
-    screen.get_width() // 2, screen.get_height() // 2 - 30))  # Centro vertical, 30 píxeles arriba del centro horizontal
-    score_text = game_font.render(f"Jumps: {int(jump_counter - 1)}", True, "black")
-    score_rect = score_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 + 10))
-    score_rect = score_text.get_rect(center=(640, 340))
-    screen.blit(game_over_text, game_over_rect)
-    screen.blit(score_text, score_rect)
-    cloud_group.empty()
-    obstacle_group.empty()
-    current_time = 0
-    timer = game_duration
-
-while True:
+running = True
+while running:
 
     keys = pygame.key.get_pressed()
+    
     for event in pygame.event.get():
+        
         if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+            running = False
+            
         if event.type == CLOUD_EVENT:
             current_cloud_y = random.randint(50, 300)
             current_cloud = Cloud(cloud, 1380, current_cloud_y)
@@ -168,38 +175,52 @@ while True:
         if event.type == OBSTACLE_EVENT:
             new_obstacle = Cactus(1280, 340)
             obstacle_group.add(new_obstacle)
-            if not game_over:
-                jump_counter += 1
+            
         if event.type == pygame.KEYDOWN and event.key in [
             pygame.K_SPACE,
             pygame.K_UP,
         ]:
             dinosaur.jump()
-            if game_over:
+            
+            if game_over: # Game start / restart
+                first_screen = False
                 game_over = False
                 times_up = False
-                player_score = 0
                 jump_counter = 0
+                start_time = pygame.time.get_ticks()
+                pygame.time.set_timer(OBSTACLE_EVENT, 1000)
+            else:
+                jump_counter += 1
 
     screen.fill("white")
+    
 
     # Update timer
-    current_time += 1 / 120  # 120 FPS
-    timer -= 1 / clock.get_fps() if clock.get_fps() > 0 else 0
-    display_time_remaining(timer)
-    if current_time >= game_duration:
+    current_time = pygame.time.get_ticks()
+    timer = current_time - start_time
+    
+    # Time over
+    if timer >= game_duration and not game_over:
+        print(final_time)
+        final_time = timer
         game_over = True
         times_up = True
-        end_game()
+        pygame.time.set_timer(OBSTACLE_EVENT, 0)
 
     # Collisions
-    if pygame.sprite.spritecollide(dino_group.sprite, obstacle_group, False):
+    if pygame.sprite.spritecollide(dino_group.sprite, obstacle_group, False) and not game_over:
+        final_time = timer
         game_over = True
         death_sfx.play()
-    if game_over:
+        
+    if first_screen:
+        init_screen()
+    elif game_over:
         end_game()
 
     if not game_over:
+        display_time_remaining()
+        
         cloud_group.update()
         cloud_group.draw(screen)
 
@@ -217,5 +238,9 @@ while True:
         if ground_x <= -1280:
             ground_x = 0
 
-    clock.tick(120)
+    clock.tick_busy_loop(fps)
     pygame.display.update()
+    
+# Quit Pygame
+pygame.quit()
+sys.exit()
