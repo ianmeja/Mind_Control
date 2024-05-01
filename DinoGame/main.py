@@ -41,7 +41,7 @@ class Dino(pygame.sprite.Sprite):
         self.velocity = 25
         self.gravity = 3.3
         self.ducking = False
-        
+
     def jump(self):
         jump_sfx.play()
         if self.rect.centery >= 360:
@@ -91,10 +91,11 @@ game_over = False
 times_up = False
 obstacle_timer = 0
 obstacle_spawn = False
-obstacle_cooldown = 1000 #TODO ir bajando el valor para que aparezcan
+obstacle_cooldown = 1000  # TODO ir bajando el valor para que aparezcan
 
-game_duration = 20  #TODO setear el valor de duracion del juego
+game_duration = 20  # TODO setear el valor de duracion del juego
 current_time = 0
+timer = game_duration
 
 # Surfaces
 
@@ -126,17 +127,24 @@ pygame.time.set_timer(CLOUD_EVENT, 3000)
 OBSTACLE_EVENT = pygame.USEREVENT
 pygame.time.set_timer(OBSTACLE_EVENT, 2000)
 
+
 # Functions
+
+def display_time_remaining(time_left):
+    timer_text = game_font.render(f"Time: {int(time_left)}s", True, (0, 0, 0))
+    timer_rect = timer_text.get_rect(topright=(780, 10))
+    screen.blit(timer_text, timer_rect)
 
 
 def end_game():
-    global player_score, current_time
+    global player_score, current_time, timer
     if times_up:
         game_over_text = game_font.render("Time is up!", True, "black")
     else:
         game_over_text = game_font.render("Game Over!", True, "black")
-    game_over_rect = game_over_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 - 30))  # Centro vertical, 30 píxeles arriba del centro horizontal
-    score_text = game_font.render(f"Jumps: {int(jump_counter-1)}", True, "black")
+    game_over_rect = game_over_text.get_rect(center=(
+    screen.get_width() // 2, screen.get_height() // 2 - 30))  # Centro vertical, 30 píxeles arriba del centro horizontal
+    score_text = game_font.render(f"Jumps: {int(jump_counter - 1)}", True, "black")
     score_rect = score_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2 + 10))
     score_rect = score_text.get_rect(center=(640, 340))
     screen.blit(game_over_text, game_over_rect)
@@ -144,6 +152,7 @@ def end_game():
     cloud_group.empty()
     obstacle_group.empty()
     current_time = 0
+    timer = game_duration
 
 while True:
 
@@ -176,6 +185,8 @@ while True:
 
     # Update timer
     current_time += 1 / 120  # 120 FPS
+    timer -= 1 / clock.get_fps() if clock.get_fps() > 0 else 0
+    display_time_remaining(timer)
     if current_time >= game_duration:
         game_over = True
         times_up = True
