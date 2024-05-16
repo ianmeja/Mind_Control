@@ -2,6 +2,14 @@ import pygame
 import sys
 import random
 
+# In-game variables
+game_speed = 6
+game_duration = 10000  # in miliseconds
+dino_gravity = 4.2
+scale_size = 0.01
+obstacle_spawn_time = 550 # in miliseconds
+jump_height = 280
+
 class Cloud(pygame.sprite.Sprite):
     def __init__(self, image, x_pos, y_pos):
         super().__init__()
@@ -30,14 +38,14 @@ class Dino(pygame.sprite.Sprite):
         self.current_image = 0
         self.image = self.running_sprites[self.current_image]
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
-        self.velocity = 25
-        self.gravity = 3.3
+        self.rect.width = self.rect.width * scale_size
+        self.gravity = dino_gravity
         self.ducking = False
 
     def jump(self):
         jump_sfx.play()
-        if self.rect.centery >= 360:
-            while self.rect.centery - self.velocity > 50:
+        if self.rect.centery >= 300:
+            while self.rect.centery > 360-jump_height:
                 self.rect.centery -= 1
 
     def apply_gravity(self):
@@ -67,6 +75,7 @@ class Cactus(pygame.sprite.Sprite):
         self.sprites.append(current_sprite)
         self.image = random.choice(self.sprites)
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
+        self.rect = self.rect.scale_by(scale_size)
 
     def update(self):
         self.x_pos -= game_speed
@@ -98,6 +107,8 @@ def end_game():
     
     cloud_group.empty()
     obstacle_group.empty()
+    pygame.time.set_timer(OBSTACLE_EVENT, 0)
+    
     
 def init_screen():
     init_text = game_font.render("Press 'space' to start", True, "black")
@@ -143,21 +154,20 @@ clock = pygame.time.Clock()
 
 # Events
 CLOUD_EVENT = pygame.USEREVENT
-pygame.time.set_timer(CLOUD_EVENT, 3000)
 OBSTACLE_EVENT = pygame.USEREVENT
-pygame.time.set_timer(OBSTACLE_EVENT, 100)
+pygame.time.set_timer(OBSTACLE_EVENT, obstacle_spawn_time)
+pygame.time.set_timer(CLOUD_EVENT, 3000)
 
 # Variables
-game_speed = 6
-game_duration = 10000  # in miliseconds
 start_time = 0
 timer = 0
 jump_counter = 0
 game_over = True
 times_up = False
 final_time = 0
-first_screen = True
 
+# Game Loop
+first_screen = True
 running = True
 while running:
 
@@ -188,7 +198,7 @@ while running:
                 times_up = False
                 jump_counter = 0
                 start_time = pygame.time.get_ticks()
-                pygame.time.set_timer(OBSTACLE_EVENT, 1000)
+                pygame.time.set_timer(OBSTACLE_EVENT, obstacle_spawn_time)
             else:
                 jump_counter += 1
 
@@ -201,17 +211,15 @@ while running:
     
     # Time over
     if timer >= game_duration and not game_over:
-        print(final_time)
         final_time = timer
         game_over = True
         times_up = True
-        pygame.time.set_timer(OBSTACLE_EVENT, 0)
 
     # Collisions
     if pygame.sprite.spritecollide(dino_group.sprite, obstacle_group, False) and not game_over:
-        final_time = timer
-        game_over = True
-        death_sfx.play()
+       final_time = timer
+       game_over = True
+       death_sfx.play()
         
     if first_screen:
         init_screen()

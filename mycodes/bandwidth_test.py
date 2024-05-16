@@ -56,7 +56,7 @@ def main():
     board.start_stream(45000, args.streamer_params)
 
     print("Prepare for test...")
-    duration = 20
+    duration = 15
     # wait for data to stabilize
     for i in range(5):
         print(5-i)
@@ -81,19 +81,16 @@ def main():
     df = pd.DataFrame(np.transpose(data))
     plt.figure()
     df[1].plot(subplots=True)
-    plt.savefig(args.file_name + '-before.png')
+    plt.show()
 
     DataFilter.perform_rolling_filter (data[1], 2, AggOperations.MEAN.value)
     DataFilter.perform_bandpass(data[1], sampling_rate, 0.5, 10.0, 4, FilterTypes.BUTTERWORTH, 0)
     DataFilter.remove_environmental_noise(data[1], sampling_rate, NoiseTypes.FIFTY.value)
-    
-    # Sava data from session for later access
-    DataFilter.write_file(data, args.file_name + '.csv', 'w')
 
     df2 = pd.DataFrame(np.transpose(data))
     plt.figure()
     df2[1].plot(subplots=True)
-    plt.savefig(args.file_name + '-after.png')
+    plt.show()
     
 
 if __name__ == "__main__":
