@@ -41,8 +41,8 @@ def main():
         DataFilter.remove_environmental_noise(data[channel], BoardShim.get_sampling_rate(board_id), NoiseTypes.FIFTY_AND_SIXTY)
         # idea is to remove some components with noise and local extremas
         # todo https://github.com/brainflow-dev/brainflow/issues/538
-        data[channel] = DataFilter.restore_data_from_wavelet_detailed_coeffs(data[channel], WaveletTypes.DB4, 6, 4)
-        df_wavelets[channel] = data[channel]
+        #data[channel] = DataFilter.restore_data_from_wavelet_detailed_coeffs(data[channel], WaveletTypes.DB4, 6, 4)
+        #df_wavelets[channel] = data[channel]
         # try different params for lag, influence and threshold, more info here https://stackoverflow.com/a/22640362
         # you can also try it wo wavelets
         df_peaks[channel] = DataFilter.detect_peaks_z_score(data[channel], lag=20, influence=0.1, threshold=3.5)

@@ -4,7 +4,6 @@ import matplotlib
 import numpy as np
 import pandas as pd
 
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
