@@ -13,7 +13,7 @@ peak_treshold = 15
 
 def main():
     # Read .csv data file and get sampling rate
-    test_name = "Ian-BB-3.3"
+    test_name = "Justi-TA-3.1"
     data_file = f"../official-tests/{test_name}(unfiltered).csv"
     data = DataFilter.read_file(data_file)
     data_ch1 = data[1]
@@ -83,7 +83,12 @@ def calculate_snr(data):
     mask = np.ones(len(data), dtype=bool)
     mask[peaks] = False
     plt.figure()
-    plt.plot(mask)
+    plt.plot(~mask)
+    plt.xlabel('Nº Sample')
+    plt.ylabel('Value')
+    plt.xlim(0, len(mask))
+    plt.yticks([True, False], ["Peak", "No Peak"])
+    plt.ylim(False,True)
     plt.savefig('mask.png')
 
     # Get noisy signal after excluding peaks
@@ -96,6 +101,8 @@ def calculate_snr(data):
     plt.plot(noise_signal)
     plt.xlim(0, len(noise_signal))
     plt.ylim(-400, 400)
+    plt.xlabel('Nº Sample')
+    plt.ylabel('Amplitude (μV)')
     plt.savefig('noise_signal.png')
 
     # Calculate SNR (expressed as a linear power ratio, not as logarithmic decibels)
