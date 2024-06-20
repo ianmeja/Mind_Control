@@ -21,8 +21,11 @@ APPLY_CUSTOM_FILTERS = True
 
 MAX_X = 20
 MAX_Y = 20
-POINT_X = 10
-POINT_Y = 8
+MAX_STEPS = 50
+# Points for experiment: P1 --> (3, 12) color=b ; P2 --> (10, 8) color=m; P3 --> (12, 3) color=r
+POINT_X = 12
+POINT_Y = 3
+COLOR = 'r'
 
 CALIBRATION_TIME = 10
 
@@ -41,6 +44,7 @@ def main ():
     parser.add_argument ('--serial-number', type = str, help  = 'serial number', required = False, default = '')
     parser.add_argument ('--board-id', type = int, help  = 'board id, check docs to get a list of supported boards', required = False, default = BoardIds.GANGLION_BOARD.value)
     parser.add_argument ('--log', action = 'store_true')
+    parser.add_argument ('--file-name', type = str, help  = 'file name', required = False, default = 'default')
     args = parser.parse_args ()
 
     params = BrainFlowInputParams ()
@@ -109,7 +113,7 @@ def main ():
     x = [0]
     y = [0]
     graph = plt.plot(x,y)[0]
-    circle = plt.Circle((POINT_X, POINT_Y), radius=4, color='m', fill=False, linewidth=2)
+    circle = plt.Circle((POINT_X, POINT_Y), radius=4, color=COLOR, fill=False, linewidth=2)
     plt.gca().add_artist(circle)
     plt.plot(POINT_X, POINT_Y, '+', color='black')
     plt.ylim(0,MAX_X)
@@ -122,7 +126,7 @@ def main ():
     print("Try to get into the circle. Press 'Ctrl+C' to quit.")
     try:
         while True:
-            if(len(x) > 50): break
+            if(len(x) > MAX_STEPS): break
             time.sleep(2)
             data = board.get_board_data() # get data 
             
@@ -165,7 +169,7 @@ def main ():
             graph.remove()
             
             # plotting newer graph
-            graph = plt.plot(x,y,color = 'm', linewidth = 2)[0]
+            graph = plt.plot(x,y,color = COLOR, linewidth = 2)[0]
             
             # calling pause function for 0.25 seconds
             plt.pause(0.25)
@@ -173,7 +177,7 @@ def main ():
     except KeyboardInterrupt:
         pass
 
-    plt.savefig('test.png')
+    plt.savefig(args.file_name + ".png")
     
     board.stop_stream ()
     board.release_session ()
