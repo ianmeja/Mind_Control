@@ -13,15 +13,16 @@ BETA = 3 # 13-30 Hz
 GAMMA = 4 # 30-55 Hz
 NUM_BANDS = 5
 
-CUSTOM_BETA_BAND = (18.0, 22.0)
+CUSTOM_BETA_BAND = (15.0, 25.0)
 CUSTOM_LOW_BAND = (1.0, 7.0)
 
+# CB = APPLY CUSTOM BANDS True ; F = APPLY CUSTOM FILTERS False
 APPLY_CUSTOM_BANDS = False
-APPLY_CUSTOM_FILTERS = True
+APPLY_CUSTOM_FILTERS = False
 
 MAX_X = 20
 MAX_Y = 20
-MAX_STEPS = 50
+MAX_STEPS = 100
 # Points for experiment: P1 --> (3, 12) color=b ; P2 --> (10, 8) color=m; P3 --> (12, 3) color=r
 POINT_X = 12
 POINT_Y = 3
@@ -124,6 +125,7 @@ def main ():
 
     print("Calibration complete. Start!")
     print("Try to get into the circle. Press 'Ctrl+C' to quit.")
+    f = open(args.file_name + '.txt', 'w')
     try:
         while True:
             if(len(x) > MAX_STEPS): break
@@ -164,6 +166,7 @@ def main ():
                 y.append(y[-1]-1) if y[-1]-1 >= 0 else y.append(y[-1])
             
             print("Step {}: [{}, {}]".format(len(x)-1, x[-1], y[-1]))
+            f.write("Step {}: [{}, {}]".format(len(x)-1, x[-1], y[-1]))
             
             # removing the older graph
             graph.remove()
@@ -178,6 +181,7 @@ def main ():
         pass
 
     plt.savefig(args.file_name + ".png")
+    f.close()
     
     board.stop_stream ()
     board.release_session ()
